@@ -1,0 +1,6 @@
+# Secrets — never commit these
+.env
+.canva-token.json
+
+node_modules/
+.DS_Store

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Canva Template Importer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;600;700&family=Playfair+Display:ital@1&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #111111;
+    --panel: #1b1b1b;
+    --charcoal: #2b2b2b;
+    --line: #3a3a3a;
+    --cream: #f5f3ee;
+    --muted: #a8a49c;
+    --gold: #d4af37;
+    --red: #e5675b;
+    --green: #7cc58a;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  .demo { background: var(--gold); color: var(--ink); font-size: 14px; font-weight: 600; padding: 10px 16px; text-align: center; }
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--cream);
+    font: 16px/1.5 Manrope, system-ui, sans-serif;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 16px 80px; }
+  .eyebrow { letter-spacing: .25em; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+  h1 { font: 400 clamp(44px, 9vw, 76px)/0.95 Anton, sans-serif; text-transform: uppercase; margin: 14px 0 8px; }
+  h1 em { font: italic 400 .62em "Playfair Display", serif; text-transform: none; color: var(--gold); display: block; margin-bottom: 4px; }
+  .lede { color: var(--muted); margin: 0 0 32px; max-width: 560px; }
+
+  .connect {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--line); padding: 16px 20px; margin-bottom: 20px;
+  }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); margin-right: 10px; }
+  .dot.on { background: var(--green); }
+  button, .btn {
+    font: 700 13px Manrope, sans-serif; letter-spacing: .12em; text-transform: uppercase;
+    background: var(--gold); color: var(--ink); border: 0; padding: 12px 20px; cursor: pointer; text-decoration: none; display: inline-block;
+  }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+
+  .drop {
+    display: block;
+    border: 2px dashed var(--line); background: var(--charcoal); padding: 48px 20px; text-align: center; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .drop.over { border-color: var(--gold); background: #33302a; }
+  .drop.disabled { opacity: .45; pointer-events: none; }
+  .drop svg { width: 44px; height: 44px; stroke: var(--muted); }
+  .drop strong { display: block; font-size: 18px; margin: 10px 0 4px; }
+  .drop span { color: var(--muted); font-size: 14px; }
+
+  .jobs { list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 12px; }
+  .job { background: var(--panel); border: 1px solid var(--line); padding: 16px 20px; display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: center; }
+  .job .name { font-weight: 700; overflow-wrap: anywhere; }
+  .job .state { font-size: 13px; color: var(--muted); grid-column: 1; }
+  .job .state.ok { color: var(--green); }
+  .job .state.err { color: var(--red); }
+  .job .actions { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 8px; }
+  .job input.title { grid-column: 1 / -1; background: var(--ink); border: 1px solid var(--line); color: var(--cream); padding: 8px 10px; font: inherit; }
+  .bar { grid-column: 1 / -1; height: 3px; background: var(--line); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 40%; background: var(--gold); animation: slide 1.2s infinite ease-in-out; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+  .copy { background: transparent; color: var(--gold); border: 1px solid var(--gold); }
+
+  .tips { margin-top: 40px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 20px; }
+  .tips b { color: var(--cream); }
+
+  @media (max-width: 560px) {
+    .job { grid-template-columns: 1fr; }
+    .job .actions { grid-row: auto; grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+<div id="demo" class="demo" hidden>Preview mode: imports are simulated. Run <code>node server.js</code> and open http://127.0.0.1:3001 to send real files to Canva.</div>
+<div class="wrap">
+  <div class="eyebrow">The BG Group · Design tools</div>
+  <h1><em>Make it editable</em>Send to Canva</h1>
+  <p class="lede">Drop in a PDF, PowerPoint, Word, Illustrator or Photoshop file. It gets imported into your Canva account as an editable design, with every page, text box and shape something you can change, and you get the link back.</p>
+
+  <div class="connect">
+    <div><span id="dot" class="dot"></span><span id="connText">Checking Canva connection…</span></div>
+    <div>
+      <a id="loginBtn" class="btn" href="/auth/login" hidden>Connect Canva</a>
+      <button id="logoutBtn" class="ghost" hidden>Disconnect</button>
+    </div>
+  </div>
+
+  <label id="drop" class="drop disabled">
+    <input id="file" type="file" multiple hidden
+      accept=".pdf,.pptx,.ppt,.key,.docx,.doc,.pages,.ai,.psd,.xlsx,.xls,.numbers,.odt,.odp,.ods" />
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+    <strong>Drop files here or click to choose</strong>
+    <span>PDF · PPTX · DOCX · AI · PSD · XLSX, up to 200 MB each</span>
+  </label>
+
+  <ul id="jobs" class="jobs"></ul>
+
+  <div class="tips">
+    <b>Tips.</b> Each page of a PDF becomes its own page in Canva. Fonts Canva doesn't have get swapped for close matches, so check headlines after import.
+    To reuse a design as a template, open it in Canva and use <b>File → Make a copy</b> for each new listing. On Canva Teams you can also use <b>Share → Template link</b>.
+  </div>
+</div>
+
+<script>
+// Opened directly as a file (no server): simulate the API so the page can be previewed.
+if (location.protocol === "file:") {
+  document.getElementById("demo").hidden = false;
+  let connected = false;
+  const json = (data) => Promise.resolve(new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } }));
+  const realFetch = window.fetch;
+  window.fetch = async (url, opts = {}) => {
+    url = String(url);
+    if (url.startsWith("/auth/status")) return json({ connected });
+    if (url.startsWith("/auth/logout")) { connected = false; return json({ ok: true }); }
+    if (url.startsWith("/api/import?")) {
+      const title = decodeURIComponent(url.split("title=")[1] || "Imported design");
+      return json({ jobId: "demo-" + Date.now() + "-" + btoa(unescape(encodeURIComponent(title))) });
+    }
+    if (url.startsWith("/api/import/")) {
+      const title = decodeURIComponent(escape(atob(url.split("-").slice(2).join("-"))));
+      return json({ status: "success", designs: [{ title, pages: 15, editUrl: "https://www.canva.com/" }] });
+    }
+    return realFetch(url, opts);
+  };
+  document.addEventListener("click", (e) => {
+    if (e.target.id === "loginBtn") { e.preventDefault(); connected = true; checkAuth(); }
+  });
+}
+
+const $ = (id) => document.getElementById(id);
+const drop = $("drop"), input = $("file"), jobs = $("jobs");
+
+async function checkAuth() {
+  try {
+    const { connected } = await (await fetch("/auth/status")).json();
+    $("dot").classList.toggle("on", connected);
+    $("connText").textContent = connected ? "Connected to Canva" : "Not connected. Connect your Canva account to start.";
+    $("loginBtn").hidden = connected;
+    $("logoutBtn").hidden = !connected;
+    drop.classList.toggle("disabled", !connected);
+  } catch {
+    $("connText").textContent = "Can't reach the local server. Is `node server.js` running?";
+  }
+}
+
+$("logoutBtn").onclick = async () => { await fetch("/auth/logout", { method: "POST" }); checkAuth(); };
+
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); handle(e.dataTransfer.files); });
+input.addEventListener("change", () => { handle(input.files); input.value = ""; });
+
+function handle(files) { [...files].forEach(addJob); }
+
+function addJob(file) {
+  const li = document.createElement("li");
+  li.className = "job";
+  const defaultTitle = file.name.replace(/\.[^.]+$/, "").replace(/^[0-9a-f]{6,}-/i, "").replace(/[-_]+/g, " ").slice(0, 50);
+  li.innerHTML = `
+    <div class="name"></div>
+    <div class="actions"><button class="send">Send to Canva</button><button class="ghost remove">Remove</button></div>
+    <div class="state">Ready · ${(file.size / 1048576).toFixed(1)} MB · design name:</div>
+    <input class="title" maxlength="50" />`;
+  li.querySelector(".name").textContent = file.name;
+  li.querySelector(".title").value = defaultTitle;
+  li.querySelector(".remove").onclick = () => li.remove();
+  li.querySelector(".send").onclick = () => send(li, file);
+  jobs.prepend(li);
+}
+
+async function send(li, file) {
+  const state = li.querySelector(".state"), actions = li.querySelector(".actions");
+  const title = li.querySelector(".title").value.trim() || "Imported design";
+  li.querySelector(".title").remove();
+  actions.innerHTML = "";
+  const bar = document.createElement("div"); bar.className = "bar"; bar.innerHTML = "<i></i>"; li.append(bar);
+  state.className = "state"; state.textContent = "Uploading…";
+
+  try {
+    const r = await fetch(`/api/import?title=${encodeURIComponent(title)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-File-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+    const start = await r.json();
+    if (!r.ok) throw new Error(start.error);
+
+    state.textContent = "Canva is converting it into an editable design…";
+    let job;
+    do {
+      await new Promise((res) => setTimeout(res, 3000));
+      const p = await fetch(`/api/import/${start.jobId}`);
+      job = await p.json();
+      if (!p.ok) throw new Error(job.error);
+    } while (job.status === "in_progress");
+
+    if (job.status !== "success") throw new Error(job.error || "Canva couldn't import this file.");
+
+    bar.remove();
+    const d = job.designs[0];
+    state.className = "state ok";
+    state.textContent = `Done: “${d.title || title}”${d.pages ? ` · ${d.pages} pages` : ""}`;
+    actions.innerHTML = `<a class="btn" target="_blank" rel="noopener">Open in Canva</a><button class="copy">Copy link</button>`;
+    actions.querySelector("a").href = d.editUrl;
+    actions.querySelector(".copy").onclick = async (e) => {
+      await navigator.clipboard.writeText(d.editUrl);
+      e.target.textContent = "Copied!";
+    };
+  } catch (err) {
+    bar.remove();
+    state.className = "state err";
+    state.textContent = "Failed: " + err.message;
+    if (/connected/i.test(err.message)) checkAuth();
+    actions.innerHTML = `<button class="ghost">Retry</button>`;
+    actions.querySelector("button").onclick = () => {
+      li.querySelector(".bar")?.remove();
+      const t = document.createElement("input"); t.className = "title"; t.maxLength = 50; t.value = title; li.append(t);
+      send(li, file);
+    };
+  }
+}
+
+checkAuth();
+</script>
+</body>
+</html>
