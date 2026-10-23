@@ -89,7 +89,7 @@
   <div class="connect">
     <div><span id="dot" class="dot"></span><span id="connText">Checking Canva connection…</span></div>
     <div>
-      <a id="loginBtn" class="btn" href="/auth/login" hidden>Connect Canva</a>
+      <a id="loginBtn" class="btn" href="/api/auth/login" hidden>Connect Canva</a>
       <button id="logoutBtn" class="ghost" hidden>Disconnect</button>
     </div>
   </div>
@@ -99,7 +99,7 @@
       accept=".pdf,.pptx,.ppt,.key,.docx,.doc,.pages,.ai,.psd,.xlsx,.xls,.numbers,.odt,.odp,.ods" />
     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
     <strong>Drop files here or click to choose</strong>
-    <span>PDF · PPTX · DOCX · AI · PSD · XLSX, up to 200 MB each</span>
+    <span>PDF · PPTX · DOCX · AI · PSD · XLSX, up to <b id="maxSize">200 MB</b> each</span>
   </label>
 
   <ul id="jobs" class="jobs"></ul>
@@ -119,8 +119,8 @@ if (location.protocol === "file:") {
   const realFetch = window.fetch;
   window.fetch = async (url, opts = {}) => {
     url = String(url);
-    if (url.startsWith("/auth/status")) return json({ connected });
-    if (url.startsWith("/auth/logout")) { connected = false; return json({ ok: true }); }
+    if (url.startsWith("/api/auth/status")) return json({ connected });
+    if (url.startsWith("/api/auth/logout")) { connected = false; return json({ ok: true }); }
     if (url.startsWith("/api/import?")) {
       const title = decodeURIComponent(url.split("title=")[1] || "Imported design");
       return json({ jobId: "demo-" + Date.now() + "-" + btoa(unescape(encodeURIComponent(title))) });
@@ -138,10 +138,12 @@ if (location.protocol === "file:") {
 
 const $ = (id) => document.getElementById(id);
 const drop = $("drop"), input = $("file"), jobs = $("jobs");
+let maxBytes = Infinity;
 
 async function checkAuth() {
   try {
-    const { connected } = await (await fetch("/auth/status")).json();
+    const { connected, maxUploadBytes } = await (await fetch("/api/auth/status")).json();
+    if (maxUploadBytes) { maxBytes = maxUploadBytes; $("maxSize").textContent = (maxBytes / 1048576).toFixed(1).replace(/\.0$/, "") + " MB"; }
     $("dot").classList.toggle("on", connected);
     $("connText").textContent = connected ? "Connected to Canva" : "Not connected. Connect your Canva account to start.";
     $("loginBtn").hidden = connected;
@@ -152,7 +154,7 @@ async function checkAuth() {
   }
 }
 
-$("logoutBtn").onclick = async () => { await fetch("/auth/logout", { method: "POST" }); checkAuth(); };
+$("logoutBtn").onclick = async () => { await fetch("/api/auth/logout", { method: "POST" }); checkAuth(); };
 
 drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
 drop.addEventListener("dragleave", () => drop.classList.remove("over"));
@@ -174,6 +176,13 @@ function addJob(file) {
   li.querySelector(".title").value = defaultTitle;
   li.querySelector(".remove").onclick = () => li.remove();
   li.querySelector(".send").onclick = () => send(li, file);
+  if (file.size > maxBytes) {
+    const state = li.querySelector(".state");
+    state.className = "state err";
+    state.textContent = `Too large (${(file.size / 1048576).toFixed(1)} MB). The limit is ${$("maxSize").textContent}. Compress the PDF, or run the app locally for big files.`;
+    li.querySelector(".title").remove();
+    li.querySelector(".send").remove();
+  }
   jobs.prepend(li);
 }
 

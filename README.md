@@ -1,37 +1,58 @@
 # Canva Template Importer
 
-A small local web app. Drop in a PDF (or a PPTX, DOCX, AI, PSD or XLSX file), click **Send to Canva**, and you get back a link to an editable Canva design in your own account.
+A small web app. Drop in a PDF (or a PPTX, DOCX, AI, PSD or XLSX file), click **Send to Canva**, and you get back a link to an editable Canva design in your own Canva account.
 
-It uses Canva's official [Connect API, Design Import](https://www.canva.dev/docs/connect/api-reference/design-imports/). You need **Node.js 18 or newer**. There's nothing else to install.
+It uses Canva's official [Connect API, Design Import](https://www.canva.dev/docs/connect/api-reference/design-imports/). It has no dependencies and runs on **Vercel** or locally with **Node.js 18+**.
 
-## One-time setup (about 5 minutes)
+## Project layout
 
-1. **Create a Canva integration.** Go to https://www.canva.com/developers/integrations, click **Create an integration**, and choose **Private** (only your team can use it).
-2. **Configuration tab:**
-   - Copy the **Client ID**.
-   - Click **Generate secret** and copy the **Client secret**.
-3. **Scopes tab:** turn on
-   - `design:content`: **Write**
-   - `design:meta`: **Read**
-4. **Authentication tab:** add this redirect URL exactly:
-   ```
-   http://127.0.0.1:3001/oauth/callback
-   ```
-5. In this folder, copy `.env.example` to `.env` and paste in your client ID and secret.
+```
+public/index.html     the upload page
+api/                  Vercel serverless functions (sign-in + import)
+lib/canva.js          shared Canva logic
+server.js             local server (not used on Vercel)
+```
 
-## Run it
+## 1. Create the Canva integration (one time)
+
+1. Go to https://www.canva.com/developers/integrations, click **Create an integration**, and choose **Private**. Only people on your Canva team can sign in with it.
+2. **Configuration tab:** copy the **Client ID**, then click **Generate secret** and copy the **Client secret**.
+3. **Scopes tab:** turn on `design:content` **Write** and `design:meta` **Read**.
+4. **Authentication tab:** add a redirect URL for each place you run the app:
+   - Vercel: `https://YOUR-APP.vercel.app/api/oauth/callback`
+   - Local: `http://127.0.0.1:3001/api/oauth/callback`
+
+## 2. Deploy on Vercel
+
+1. In Vercel, **Add New → Project** and import this GitHub repo. Framework preset: **Other**. Leave the build settings empty.
+2. **Settings → Environment Variables**, add:
+   - `CANVA_CLIENT_ID`
+   - `CANVA_CLIENT_SECRET`
+   - `SESSION_SECRET`: optional. Any long random string, used to encrypt sign-in cookies.
+3. **Deployments → Redeploy** so the variables take effect.
+4. Make sure your Vercel URL + `/api/oauth/callback` is in the Canva integration's redirect URLs (step 1.4).
+
+Every push to `main` redeploys automatically.
+
+**File size on Vercel:** Vercel limits uploads to about **4.4 MB per file**. For bigger files, compress the PDF first or run the app locally, where the limit is 200 MB.
+
+## Run locally
 
 ```bash
-npm start    # or: node server.js
+cp .env.example .env    # paste in your client ID and secret
+npm start               # or: node server.js
 ```
 
 Open **http://127.0.0.1:3001**, click **Connect Canva** and approve. Then drop in your file.
 
-Your Canva sign-in is saved in `.canva-token.json` in this folder, so you only connect once. Click **Disconnect** or delete that file to sign out. Keep `.env` and `.canva-token.json` private.
+Opening `public/index.html` directly in a browser, without the server, shows a **preview mode** where imports are simulated.
+
+## How sign-in works
+
+Each person who opens the app connects their **own** Canva account, and designs go into that account. The sign-in is stored in an encrypted, HTTP-only browser cookie for up to 90 days. Nothing is saved on the server. **Disconnect** clears it.
 
 ## Notes
 
 - Each PDF page becomes a Canva page, and text, shapes and images stay editable.
 - Fonts Canva doesn't have get replaced with similar ones, so check the headlines after an import.
 - To use the result as a reusable template, open it in Canva and use **File → Make a copy** for each new listing. On Canva Teams you can also use **Share → Template link**.
-- If you change `PORT`, update the redirect URL in your Canva integration to match.
