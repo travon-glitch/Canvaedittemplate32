@@ -27,23 +27,16 @@ const routes = {
   "/api/auth/status": require("./api/auth/status"),
   "/api/auth/login": require("./api/auth/login"),
   "/api/auth/logout": require("./api/auth/logout"),
-  "/api/oauth/login": require("./api/oauth/login"),
-  "/api/oauth/logout": require("./api/oauth/logout"),
   "/api/oauth/callback": require("./api/oauth/callback"),
   "/api/import": require("./api/import/index"),
   "/api/blob-upload": require("./api/blob-upload"),
   "/api/url-import": require("./api/url-import/index"),
-  "/api/canva/me": require("./api/canva/me"),
-  "/api/canva/designs": require("./api/canva/designs/index"),
-  "/api/canva/assets/upload": require("./api/canva/assets/upload"),
-  "/api/canva/assets/from-url": require("./api/canva/assets/from-url"),
-  "/api/canva/import": require("./api/canva/import"),
 };
 const patterns = [
   [/^\/api\/import\/[\w-]+$/, require("./api/import/[id]")],
   [/^\/api\/url-import\/[\w-]+$/, require("./api/url-import/[id]")],
-  [/^\/api\/canva\/designs\/[\w-]+$/, require("./api/canva/designs/[id]")],
-  [/^\/api\/canva\/assets\/jobs\/[\w-]+$/, require("./api/canva/assets/jobs/[id]")],
+  // Same routing as the rewrites in vercel.json.
+  [/^\/api\/(canva\/.+|oauth\/login|oauth\/logout)$/, require("./api/router")],
 ];
 const pages = {
   "/": "index.html",

@@ -5,6 +5,9 @@
     "api/**/*.js": { "maxDuration": 60 }
   },
   "rewrites": [
+    { "source": "/api/canva/:path*", "destination": "/api/router?route=canva/:path*" },
+    { "source": "/api/oauth/login", "destination": "/api/router?route=oauth/login" },
+    { "source": "/api/oauth/logout", "destination": "/api/router?route=oauth/logout" },
     { "source": "/dashboard", "destination": "/dashboard/index.html" }
   ]
 }
