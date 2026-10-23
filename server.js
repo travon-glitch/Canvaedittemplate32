@@ -3,7 +3,7 @@
 // api/ runs as serverless functions. Locally, this serves both.
 //
 // No dependencies: requires Node.js 18+ (uses built-in fetch).
-// Usage:  npm start   then open http://127.0.0.1:3001
+// Usage: npm start then open http://127.0.0.1:3001
 
 const http = require("http");
 const fs = require("fs");
@@ -17,8 +17,8 @@ if (!process.env.APP_URL) process.env.APP_URL = `http://127.0.0.1:${PORT}`;
 if (!process.env.CANVA_CLIENT_ID || !process.env.CANVA_CLIENT_SECRET) {
   console.error(
     "\nMissing CANVA_CLIENT_ID / CANVA_CLIENT_SECRET.\n" +
-      "Copy .env.example to .env and fill in the values from your Canva integration.\n" +
-      "See README.md for the setup.\n"
+    "Copy .env.example to .env and fill in the values from your Canva integration.\n" +
+    "See README.md for the setup.\n"
   );
   process.exit(1);
 }
@@ -27,13 +27,30 @@ const routes = {
   "/api/auth/status": require("./api/auth/status"),
   "/api/auth/login": require("./api/auth/login"),
   "/api/auth/logout": require("./api/auth/logout"),
+  "/api/oauth/login": require("./api/oauth/login"),
+  "/api/oauth/logout": require("./api/oauth/logout"),
   "/api/oauth/callback": require("./api/oauth/callback"),
   "/api/import": require("./api/import/index"),
   "/api/blob-upload": require("./api/blob-upload"),
   "/api/url-import": require("./api/url-import/index"),
+  "/api/canva/me": require("./api/canva/me"),
+  "/api/canva/designs": require("./api/canva/designs/index"),
+  "/api/canva/assets/upload": require("./api/canva/assets/upload"),
+  "/api/canva/assets/from-url": require("./api/canva/assets/from-url"),
+  "/api/canva/import": require("./api/canva/import"),
 };
-const importStatus = require("./api/import/[id]");
-const urlImportStatus = require("./api/url-import/[id]");
+const patterns = [
+  [/^\/api\/import\/[\w-]+$/, require("./api/import/[id]")],
+  [/^\/api\/url-import\/[\w-]+$/, require("./api/url-import/[id]")],
+  [/^\/api\/canva\/designs\/[\w-]+$/, require("./api/canva/designs/[id]")],
+  [/^\/api\/canva\/assets\/jobs\/[\w-]+$/, require("./api/canva/assets/jobs/[id]")],
+];
+const pages = {
+  "/": "index.html",
+  "/index.html": "index.html",
+  "/dashboard": "dashboard/index.html",
+  "/dashboard/": "dashboard/index.html",
+};
 
 function loadEnvFile(file) {
   if (!fs.existsSync(file)) return;
@@ -47,11 +64,10 @@ http
   .createServer((req, res) => {
     const { pathname } = new URL(req.url, process.env.APP_URL);
     if (routes[pathname]) return routes[pathname](req, res);
-    if (/^\/api\/import\/[\w-]+$/.test(pathname)) return importStatus(req, res);
-    if (/^\/api\/url-import\/[\w-]+$/.test(pathname)) return urlImportStatus(req, res);
-    if (req.method === "GET" && (pathname === "/" || pathname === "/index.html")) {
+    for (const [re, fn] of patterns) if (re.test(pathname)) return fn(req, res);
+    if (req.method === "GET" && pages[pathname]) {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      return fs.createReadStream(path.join(__dirname, "public", "index.html")).pipe(res);
+      return fs.createReadStream(path.join(__dirname, "public", pages[pathname])).pipe(res);
     }
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));

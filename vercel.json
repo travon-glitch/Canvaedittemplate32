@@ -3,5 +3,8 @@
   "outputDirectory": "public",
   "functions": {
     "api/**/*.js": { "maxDuration": 60 }
-  }
+  },
+  "rewrites": [
+    { "source": "/dashboard", "destination": "/dashboard/index.html" }
+  ]
 }
