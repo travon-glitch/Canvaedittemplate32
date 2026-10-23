@@ -29,8 +29,11 @@ const routes = {
   "/api/auth/logout": require("./api/auth/logout"),
   "/api/oauth/callback": require("./api/oauth/callback"),
   "/api/import": require("./api/import/index"),
+  "/api/blob-upload": require("./api/blob-upload"),
+  "/api/url-import": require("./api/url-import/index"),
 };
 const importStatus = require("./api/import/[id]");
+const urlImportStatus = require("./api/url-import/[id]");
 
 function loadEnvFile(file) {
   if (!fs.existsSync(file)) return;
@@ -45,6 +48,7 @@ http
     const { pathname } = new URL(req.url, process.env.APP_URL);
     if (routes[pathname]) return routes[pathname](req, res);
     if (/^\/api\/import\/[\w-]+$/.test(pathname)) return importStatus(req, res);
+    if (/^\/api\/url-import\/[\w-]+$/.test(pathname)) return urlImportStatus(req, res);
     if (req.method === "GET" && (pathname === "/" || pathname === "/index.html")) {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       return fs.createReadStream(path.join(__dirname, "public", "index.html")).pipe(res);

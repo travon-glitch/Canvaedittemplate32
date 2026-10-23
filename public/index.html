@@ -20,6 +20,8 @@
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
+  .notice { border: 1px solid var(--red); color: var(--red); padding: 12px 16px; margin-bottom: 12px; font-size: 14px; }
+  .connect code { color: var(--gold); }
   .demo { background: var(--gold); color: var(--ink); font-size: 14px; font-weight: 600; padding: 10px 16px; text-align: center; }
   body {
     margin: 0;
@@ -138,19 +140,29 @@ if (location.protocol === "file:") {
 
 const $ = (id) => document.getElementById(id);
 const drop = $("drop"), input = $("file"), jobs = $("jobs");
-let maxBytes = Infinity;
+let maxBytes = Infinity;   // direct upload limit
+let largeFiles = null;     // { maxBytes } when Vercel Blob is set up for bigger files
+const mb = (n) => (n / 1048576).toFixed(1).replace(/\.0$/, "") + " MB";
 
 async function checkAuth() {
   try {
-    const { connected, maxUploadBytes } = await (await fetch("/api/auth/status")).json();
-    if (maxUploadBytes) { maxBytes = maxUploadBytes; $("maxSize").textContent = (maxBytes / 1048576).toFixed(1).replace(/\.0$/, "") + " MB"; }
+    const s = await (await fetch("/api/auth/status")).json();
+    const connected = s.connected;
+    if (s.configured === false) {
+      $("connText").innerHTML = "<b>Setup needed:</b> add <code>CANVA_CLIENT_ID</code> and <code>CANVA_CLIENT_SECRET</code> in Vercel → Settings → Environment Variables, then redeploy.";
+      $("loginBtn").hidden = true;
+      return;
+    }
+    if (s.maxUploadBytes) maxBytes = s.maxUploadBytes;
+    largeFiles = s.largeFiles || null;
+    $("maxSize").textContent = mb(largeFiles ? Math.max(maxBytes, largeFiles.maxBytes) : maxBytes);
     $("dot").classList.toggle("on", connected);
     $("connText").textContent = connected ? "Connected to Canva" : "Not connected. Connect your Canva account to start.";
     $("loginBtn").hidden = connected;
     $("logoutBtn").hidden = !connected;
     drop.classList.toggle("disabled", !connected);
   } catch {
-    $("connText").textContent = "Can't reach the local server. Is `node server.js` running?";
+    $("connText").textContent = "Can't reach the server. Refresh the page, or if running locally, check that `npm start` is running.";
   }
 }
 
@@ -176,10 +188,12 @@ function addJob(file) {
   li.querySelector(".title").value = defaultTitle;
   li.querySelector(".remove").onclick = () => li.remove();
   li.querySelector(".send").onclick = () => send(li, file);
-  if (file.size > maxBytes) {
+  const limit = largeFiles ? Math.max(maxBytes, largeFiles.maxBytes) : maxBytes;
+  if (file.size > limit) {
     const state = li.querySelector(".state");
     state.className = "state err";
-    state.textContent = `Too large (${(file.size / 1048576).toFixed(1)} MB). The limit is ${$("maxSize").textContent}. Compress the PDF, or run the app locally for big files.`;
+    state.textContent = `Too large (${mb(file.size)}). The limit is ${mb(limit)}. ` +
+      (largeFiles ? "Compress the file and try again." : "Compress the PDF, or connect a Vercel Blob store to allow big files (see README).");
     li.querySelector(".title").remove();
     li.querySelector(".send").remove();
   }
@@ -195,19 +209,39 @@ async function send(li, file) {
   state.className = "state"; state.textContent = "Uploading…";
 
   try {
-    const r = await fetch(`/api/import?title=${encodeURIComponent(title)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/octet-stream", "X-File-Type": file.type || "application/octet-stream" },
-      body: file,
-    });
-    const start = await r.json();
+    let r, pollUrl;
+    if (file.size > maxBytes && largeFiles) {
+      // Big file: upload straight to Vercel Blob, then have Canva import it from there.
+      const { upload } = await import("https://esm.sh/@vercel/blob@2.8.0/client");
+      const safeName = file.name.replace(/[^\w.-]+/g, "-");
+      const blob = await upload(`imports/${safeName}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/blob-upload",
+        multipart: file.size > 20 * 1048576,
+        onUploadProgress: ({ percentage }) => { state.textContent = `Uploading… ${Math.round(percentage)}%`; },
+      });
+      r = await fetch("/api/url-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: blob.url, title, mime: file.type }),
+      });
+      pollUrl = (id) => `/api/url-import/${id}?blob=${encodeURIComponent(blob.url)}`;
+    } else {
+      r = await fetch(`/api/import?title=${encodeURIComponent(title)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream", "X-File-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      pollUrl = (id) => `/api/import/${id}`;
+    }
+    const start = await r.json().catch(() => ({ error: `Server error (${r.status})` }));
     if (!r.ok) throw new Error(start.error);
 
     state.textContent = "Canva is converting it into an editable design…";
     let job;
     do {
       await new Promise((res) => setTimeout(res, 3000));
-      const p = await fetch(`/api/import/${start.jobId}`);
+      const p = await fetch(pollUrl(start.jobId));
       job = await p.json();
       if (!p.ok) throw new Error(job.error);
     } while (job.status === "in_progress");
@@ -236,6 +270,16 @@ async function send(li, file) {
       send(li, file);
     };
   }
+}
+
+const signinError = new URLSearchParams(location.search).get("signin_error");
+if (signinError) {
+  const e = document.createElement("div");
+  e.className = "notice";
+  e.textContent = "Canva sign-in failed: " + signinError +
+    (/redirect/i.test(signinError) ? ` (make sure ${location.origin}/api/oauth/callback is added as a redirect URL in your Canva integration)` : "");
+  document.querySelector(".connect").before(e);
+  history.replaceState(null, "", "/");
 }
 
 checkAuth();

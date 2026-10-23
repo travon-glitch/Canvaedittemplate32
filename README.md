@@ -2,13 +2,13 @@
 
 A small web app. Drop in a PDF (or a PPTX, DOCX, AI, PSD or XLSX file), click **Send to Canva**, and you get back a link to an editable Canva design in your own Canva account.
 
-It uses Canva's official [Connect API, Design Import](https://www.canva.dev/docs/connect/api-reference/design-imports/). It has no dependencies and runs on **Vercel** or locally with **Node.js 18+**.
+It uses Canva's official [Connect API, Design Import](https://www.canva.dev/docs/connect/api-reference/design-imports/). It runs on **Vercel** or locally with **Node.js 18+**.
 
 ## Project layout
 
 ```
 public/index.html     the upload page
-api/                  Vercel serverless functions (sign-in + import)
+api/                  Vercel serverless functions (sign-in, import, large-file upload)
 lib/canva.js          shared Canva logic
 server.js             local server (not used on Vercel)
 ```
@@ -34,13 +34,27 @@ server.js             local server (not used on Vercel)
 
 Every push to `main` redeploys automatically.
 
-**File size on Vercel:** Vercel limits uploads to about **4.4 MB per file**. For bigger files, compress the PDF first or run the app locally, where the limit is 200 MB.
+### Large files (optional, recommended)
+
+Vercel limits a direct upload to about **4.4 MB**. To allow files up to **200 MB**:
+
+1. In your Vercel project, open **Storage → Create → Blob**. Give it a name, choose **public** access, and connect it to this project.
+2. Vercel adds the `BLOB_READ_WRITE_TOKEN` variable automatically. **Redeploy**.
+
+Big files then upload straight from the browser to Vercel Blob. Canva imports them from there using its [URL import API](https://www.canva.dev/docs/connect/api-reference/design-imports/create-url-import-job/), which Canva labels as a preview, and the temporary file is deleted afterward. Files under 4.4 MB keep using the direct upload.
+
+## Troubleshooting
+
+- **"Setup needed"** on the page: the Canva keys aren't set in Vercel. Add them and redeploy.
+- **"Canva sign-in failed … redirect"**: the redirect URL in your Canva integration must exactly match `https://YOUR-APP.vercel.app/api/oauth/callback`.
+- **"Too large"**: set up a Blob store (above), or compress the file.
 
 ## Run locally
 
 ```bash
 cp .env.example .env    # paste in your client ID and secret
-npm start               # or: node server.js
+npm install
+npm start
 ```
 
 Open **http://127.0.0.1:3001**, click **Connect Canva** and approve. Then drop in your file.
