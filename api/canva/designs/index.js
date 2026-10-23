@@ -1,0 +1,3 @@
+const c = require("../../../lib/canva");
+// GET /api/canva/designs?query=...&continuation=...
+module.exports = c.only(["GET"], c.listDesigns);
